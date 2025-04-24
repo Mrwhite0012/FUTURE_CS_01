@@ -1,0 +1,129 @@
+# FUTURE_CS_01
+**Web Application Security Testing Report**
+
+**Challenge:** Cheese CTF - TryHackMe
+**Tester:** Anish aka Mr.White
+**Date:** April 23, 2025
+**Target IP:** 10.10.158.76
+**Operating System:** Linux (Kali)
+**Difficulty:** Easy
+**Tools Used:** Nmap, FFUF, SQLMap, Burp Suite, SSH, systemctl, LinPEAS, GTFOBins
+
+---
+
+## 1. Objective
+To conduct a comprehensive security assessment of the Cheese CTF machine on TryHackMe by identifying and exploiting web application vulnerabilities, and escalating privileges to root access.
+
+---
+
+## 2. Methodology
+
+1. Reconnaissance - Identify open ports and services.
+2. Enumeration - Explore web application and uncover hidden pages.
+3. Exploitation - Use discovered vulnerabilities for access.
+4. Privilege Escalation - Escalate to root-level privileges.
+5. Post-Exploitation - Retrieve and document flags.
+
+---
+
+## 3. Tools and Techniques Used
+
+- **Nmap:** For network scanning and service detection.
+- **FFUF:** For brute-forcing web directories.
+- **SQLMap:** For SQL injection automation.
+- **Burp Suite:** For manual HTTP interception and manipulation.
+- **SSH:** For remote access to compromised accounts.
+- **LinPEAS:** For local privilege escalation enumeration.
+- **systemctl:** For exploiting misconfigured systemd timers.
+- **GTFOBins:** For privilege escalation via SUID binaries.
+
+---
+
+## 4. Findings and Exploitation
+
+### 4.1 Reconnaissance
+**Tool:** Nmap  
+**Command:** `nmap -sC -sV -p- 10.10.158.76`
+
+**Results:**
+- Port 22/tcp - OpenSSH 8.2p1
+- Port 80/tcp - Apache httpd
+
+---
+
+### 4.2 Web Enumeration
+**Tool:** FFUF  
+**Command:** `ffuf -u http://10.10.158.76/FUZZ -w /usr/share/wordlists/dirb/common.txt`
+
+**Findings:**
+- Discovered `login.php` and `secret-script.php`
+
+---
+
+### 4.3 SQL Injection
+**Tool:** SQLMap  
+**Command:** `sqlmap -u "http://10.10.158.76/login.php" --data="username=admin&password=admin" --dump`
+
+**Exploitation:**
+- SQLi vulnerability on `username` parameter.
+- Bypassed authentication using `' OR 1=1--`.
+
+---
+
+### 4.4 Local File Inclusion (LFI)
+**URL:** `http://10.10.158.76/secret-script.php?file=../../../../etc/passwd`
+
+**Outcome:**
+- Confirmed ability to read system files.
+
+---
+
+### 4.5 Remote Code Execution (RCE)
+**Technique:** PHP filter chain
+**URL:** `http://10.10.158.76/secret-script.php?file=php://filter/convert.base64-encode/resource=secret-script.php`
+
+**Result:**
+- Source code revealed sensitive function calls and hardcoded paths.
+
+---
+
+### 4.6 Privilege Escalation to User `comte`
+**Steps:**
+1. Discovered writable `.ssh/authorized_keys`.
+2. Injected SSH public key.
+3. Accessed the system with private key.
+
+**Command:** `ssh -i id_rsa comte@10.10.158.76`
+
+---
+
+### 4.7 Privilege Escalation to Root
+**Observation:** `comte` can start a custom systemd timer.
+
+**Exploit:**
+1. Modified service and timer unit.
+2. Timer executed payload setting SUID on `/opt/xxd`.
+3. Read root flag using SUID binary:
+
+**Command:** `/opt/xxd /root/root.txt | xxd -r`
+
+---
+
+## 5. Flags Captured
+
+- **User Flag:** `/home/comte/user.txt`
+- **Root Flag:** `/root/root.txt`
+
+---
+
+## 6. Recommendations
+
+- Sanitize input fields and use prepared statements to prevent SQL injection.
+- Prevent file inclusion by whitelisting accessible paths.
+- Secure SSH authorized_keys with strict permissions.
+- Restrict systemd timer modification to root only.
+- Remove unnecessary SUID binaries or tightly monitor their use.
+
+--
+**End of Report**
+
